@@ -1,0 +1,8 @@
+{
+  "courseId": "9494e613-4408-44b7-ad68-1acbd447ca41",
+  "days": ["MON", "WED"],
+  "startTime": "18:00",
+  "endTime": "20:00",
+  "capacity": 30,
+  "status": "open"
+}

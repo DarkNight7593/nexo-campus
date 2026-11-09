@@ -1,0 +1,8 @@
+{
+  "instructorId": "9cdd3ed8-c176-4518-bd13-27e2dd6fd315",
+  "name": "Arquitectura Serverless en AWS",
+  "description": "Lambda, API Gateway, DynamoDB y observabilidad.",
+  "startDate": "2026-02-01",
+  "endDate": "2026-04-01",
+  "price": 99
+}

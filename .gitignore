@@ -1,0 +1,16 @@
+node_modules/
+dist/
+coverage/
+cdk.out*/
+outputs/
+.env
+.env.*
+!.env.example
+*.log
+*.tsbuildinfo
+__pycache__/
+*.py[cod]
+.venv/
+.DS_Store
+.idea/
+.vscode/

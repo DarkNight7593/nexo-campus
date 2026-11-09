@@ -1,0 +1,55 @@
+{
+  "name": "cloud-learning-platform",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Nexo Campus: multi-tenant academic operations platform deployed to AWS with CDK",
+  "workspaces": [
+    "apps/*",
+    "services/*",
+    "packages/*",
+    "infrastructure/*"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "typecheck": "tsc -p tsconfig.scripts.json --noEmit && npm run typecheck --workspaces --if-present",
+    "test": "npm run test:scripts && npm run test:workspaces && npm run test:python",
+    "test:scripts": "vitest run scripts --exclude '**/dist/**'",
+    "test:workspaces": "npm run test --workspaces --if-present",
+    "test:python": "tsx scripts/run-python.ts -m unittest discover -s scripts/ingestion -p test_*.py -v",
+    "lint": "eslint .",
+    "validate": "npm run docs:validate && npm run lint && npm run typecheck && npm run test && npm run build && npm run aws:validate",
+    "docs:validate": "tsx scripts/validate-openapi.ts",
+    "synth:dev": "npm --workspace @cloud-learning/infrastructure run synth -- --context stage=dev",
+    "aws:validate": "npm run synth:dev && tsx scripts/audit-cdk.ts dev",
+    "deploy:dev": "tsx scripts/deploy/deploy-all.ts dev",
+    "deploy:staging": "tsx scripts/deploy/deploy-all.ts staging",
+    "deploy:production": "tsx scripts/deploy/deploy-all.ts production",
+    "ingest:dry-run": "tsx scripts/run-python.ts scripts/ingestion/main.py --stage dev --dry-run",
+    "ingest:dev": "tsx scripts/run-python.ts scripts/ingestion/main.py --stage dev",
+    "smoke-test:dev": "tsx scripts/smoke-test.ts dev",
+    "verify:aws": "tsx scripts/verify-aws-account.ts dev"
+  },
+  "dependencies": {
+    "@aws-sdk/client-cloudfront": "^3.1152.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.1152.0",
+    "@aws-sdk/client-dynamodb": "^3.1152.0",
+    "@aws-sdk/client-s3": "^3.1152.0",
+    "@aws-sdk/client-sts": "^3.1152.0",
+    "@aws-sdk/lib-dynamodb": "^3.1152.0",
+    "dotenv": "^17.2.3"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "eslint": "^9.39.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.48.1",
+    "vitest": "^5.0.5",
+    "yaml": "^2.9.1"
+  }
+}

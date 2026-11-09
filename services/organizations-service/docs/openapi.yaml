@@ -1,0 +1,170 @@
+openapi: 3.0.3
+info:
+  title: Nexo Campus - Organizations API
+  version: 1.0.0
+  description: Administración de la organización asociada al tenant autenticado. El rol admin es local al tenant, no global.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId: { default: example, description: API ID entregado por CloudFormation }
+      region: { default: us-east-1 }
+      stage: { default: dev }
+security:
+  - CognitoIdToken: []
+tags:
+  - name: Organizations
+paths:
+  /organizations:
+    post:
+      tags: [Organizations]
+      operationId: createOrganization
+      summary: Crea una organización
+      description: Requiere rol `admin` y `organizationId` debe coincidir con `custom:tenant_id` del token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateOrganization' }
+            examples:
+              organization:
+                externalValue: ./examples/create-organization.request.json
+      responses:
+        '201':
+          description: Organización creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+              examples:
+                created:
+                  externalValue: ./examples/organization.response.json
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Organizations]
+      operationId: listOrganizations
+      summary: Lista la organización del tenant autenticado
+      description: Requiere rol `admin`; nunca devuelve organizaciones de otros tenants.
+      responses:
+        '200':
+          description: Organización del tenant autenticado, si existe
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Organization' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /organizations/{organizationId}:
+    parameters:
+      - $ref: '#/components/parameters/OrganizationId'
+    get:
+      tags: [Organizations]
+      operationId: getOrganization
+      summary: Obtiene una organización
+      description: Sólo permite consultar la organización indicada por `custom:tenant_id` en el token.
+      responses:
+        '200':
+          description: Organización encontrada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [Organizations]
+      operationId: updateOrganization
+      summary: Actualiza una organización
+      description: Requiere rol `admin`; sólo permite modificar el tenant del token y `organizationId` no se puede modificar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateOrganization' }
+      responses:
+        '200':
+          description: Organización actualizada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Organization' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    CognitoIdToken:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: ID token JWT sin prefijo, emitido por Cognito.
+  parameters:
+    OrganizationId:
+      name: organizationId
+      in: path
+      required: true
+      schema: { type: string, minLength: 3, maxLength: 64, pattern: '^[a-z0-9-]+$' }
+  schemas:
+    CreateOrganization:
+      type: object
+      additionalProperties: false
+      required: [organizationId, name]
+      properties:
+        organizationId: { type: string, minLength: 3, maxLength: 64, pattern: '^[a-z0-9-]+$' }
+        name: { type: string, minLength: 2, maxLength: 120 }
+        domain: { type: string, maxLength: 253, description: Dominio institucional registrado como metadato; no crea DNS ni recursos Route 53. }
+        email: { type: string, format: email }
+        description: { type: string, maxLength: 500 }
+    UpdateOrganization:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 2, maxLength: 120 }
+        domain: { type: string, maxLength: 253, description: Dominio institucional registrado como metadato; no crea DNS ni recursos Route 53. }
+        email: { type: string, format: email }
+        description: { type: string, maxLength: 500 }
+    Organization:
+      allOf:
+        - $ref: '#/components/schemas/CreateOrganization'
+        - type: object
+          required: [createdAt, updatedAt]
+          properties:
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        issues: { type: array, items: { type: object, additionalProperties: true } }
+  responses:
+    BadRequest:
+      description: JSON, campos o parámetros inválidos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Token ausente, inválido o incompleto
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Rol o tenant sin permisos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Organización no encontrada
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: La organización ya existe
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    InternalError:
+      description: Error interno
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

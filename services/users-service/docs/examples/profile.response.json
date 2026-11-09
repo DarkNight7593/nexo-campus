@@ -1,0 +1,10 @@
+{
+  "tenantId": "udemy",
+  "userId": "d52cfed4-7288-4c78-b0b1-6e73356a7210",
+  "email": "student1@udemy.demo",
+  "fullName": "Estudiante Uno",
+  "role": "student",
+  "documentNumber": "DOC-1001",
+  "createdAt": "2026-01-10T15:30:00.000Z",
+  "updatedAt": "2026-01-10T15:30:00.000Z"
+}

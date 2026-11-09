@@ -1,0 +1,12 @@
+{
+  "tenantId": "udemy",
+  "userId": "d52cfed4-7288-4c78-b0b1-6e73356a7210",
+  "purchaseId": "f54616bf-95ae-4544-a184-6055d9facac5",
+  "idempotencyKey": "f54616bf-95ae-4544-a184-6055d9facac5",
+  "courseId": "9494e613-4408-44b7-ad68-1acbd447ca41",
+  "scheduleId": "6e36a112-e35c-4aec-924a-80d5340d2d4b",
+  "status": "reserved",
+  "amount": 99,
+  "createdAt": "2026-01-10T15:30:00.000Z",
+  "updatedAt": "2026-01-10T15:30:00.000Z"
+}

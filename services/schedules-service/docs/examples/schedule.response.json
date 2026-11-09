@@ -1,0 +1,13 @@
+{
+  "tenantId": "udemy",
+  "courseId": "9494e613-4408-44b7-ad68-1acbd447ca41",
+  "scheduleId": "6e36a112-e35c-4aec-924a-80d5340d2d4b",
+  "days": ["MON", "WED"],
+  "startTime": "18:00",
+  "endTime": "20:00",
+  "capacity": 30,
+  "occupiedCount": 0,
+  "status": "open",
+  "createdAt": "2026-01-10T15:30:00.000Z",
+  "updatedAt": "2026-01-10T15:30:00.000Z"
+}

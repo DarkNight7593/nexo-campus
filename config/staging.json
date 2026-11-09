@@ -1,0 +1,15 @@
+{
+  "stage": "staging",
+  "region": "us-east-1",
+  "allowedOrigins": [],
+  "logRetentionDays": 30,
+  "removalPolicy": "retain",
+  "apiThrottling": { "rateLimit": 100, "burstLimit": 200 },
+  "openSearch": {
+    "minIndexingOcu": 0,
+    "maxIndexingOcu": 4,
+    "minSearchOcu": 0,
+    "maxSearchOcu": 4,
+    "standbyReplicas": "ENABLED"
+  }
+}

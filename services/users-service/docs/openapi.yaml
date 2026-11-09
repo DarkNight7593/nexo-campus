@@ -1,0 +1,161 @@
+openapi: 3.0.3
+info:
+  title: Nexo Campus - Users API
+  version: 1.0.0
+  description: Perfiles de usuario aislados por tenant. Cognito es responsable de la identidad.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId: { default: example, description: API ID entregado por CloudFormation }
+      region: { default: us-east-1 }
+      stage: { default: dev }
+security:
+  - CognitoIdToken: []
+tags:
+  - name: Profiles
+paths:
+  /profiles:
+    post:
+      tags: [Profiles]
+      operationId: createMyProfile
+      summary: Crea el perfil del usuario autenticado
+      description: Usa `sub` y `custom:tenant_id` del token. Un usuario no administrador sólo puede usar su propio rol y el correo debe coincidir con el claim `email` autenticado.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateProfile' }
+            examples:
+              student:
+                externalValue: ./examples/create-profile.request.json
+      responses:
+        '201':
+          description: Perfil creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+              examples:
+                created:
+                  externalValue: ./examples/profile.response.json
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Profiles]
+      operationId: listProfiles
+      summary: Lista los perfiles del tenant
+      description: Sólo el rol `admin` puede utilizar esta operación.
+      responses:
+        '200':
+          description: Perfiles del tenant autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /profiles/me:
+    get:
+      tags: [Profiles]
+      operationId: getMyProfile
+      summary: Obtiene el perfil del usuario autenticado
+      responses:
+        '200':
+          description: Perfil encontrado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    patch:
+      tags: [Profiles]
+      operationId: updateMyProfile
+      summary: Actualiza nombre o documento del usuario autenticado
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateProfile' }
+      responses:
+        '200':
+          description: Perfil actualizado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Profile' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    CognitoIdToken:
+      type: apiKey
+      in: header
+      name: Authorization
+      description: ID token JWT sin prefijo, emitido por el User Pool de Cognito.
+  schemas:
+    Role:
+      type: string
+      enum: [admin, instructor, student]
+    CreateProfile:
+      type: object
+      additionalProperties: false
+      required: [email, fullName, role]
+      properties:
+        email: { type: string, format: email }
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        role: { $ref: '#/components/schemas/Role' }
+        documentNumber: { type: string, minLength: 4, maxLength: 30 }
+    UpdateProfile:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        fullName: { type: string, minLength: 2, maxLength: 120 }
+        documentNumber: { type: string, minLength: 4, maxLength: 30 }
+    Profile:
+      allOf:
+        - $ref: '#/components/schemas/CreateProfile'
+        - type: object
+          required: [tenantId, userId, createdAt, updatedAt]
+          properties:
+            tenantId: { type: string }
+            userId: { type: string, description: Claim `sub` de Cognito }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        issues:
+          type: array
+          items: { type: object, additionalProperties: true }
+  responses:
+    BadRequest:
+      description: JSON o campos inválidos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Token ausente, inválido o sin claims requeridos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: Rol sin permisos
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Perfil no encontrado
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: El perfil ya existe
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    InternalError:
+      description: Error interno
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

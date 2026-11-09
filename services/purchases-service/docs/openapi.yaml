@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: Nexo Campus - Purchases API
+  version: 1.0.0
+  description: Reservas, matrículas y cancelación lógica con archivo de eventos en S3.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId: { default: example, description: API ID entregado por CloudFormation }
+      region: { default: us-east-1 }
+      stage: { default: dev }
+security:
+  - CognitoIdToken: []
+tags:
+  - name: Purchases
+paths:
+  /purchases:
+    post:
+      tags: [Purchases]
+      operationId: createPurchase
+      summary: Crea una compra para el usuario autenticado
+      description: "`tenantId` y `userId` provienen del token. El precio se obtiene del curso y el cupo se reserva atómicamente. Repetir la misma clave de idempotencia devuelve la compra original."
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PurchaseInput' }
+            examples:
+              purchase:
+                externalValue: ./examples/create-purchase.request.json
+      responses:
+        '201':
+          description: Compra creada
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Purchase' }
+              examples:
+                created:
+                  externalValue: ./examples/purchase.response.json
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Purchases]
+      operationId: listPurchases
+      summary: Lista compras visibles para el usuario
+      description: "`admin` ve el tenant completo; los demás roles sólo sus propias compras."
+      responses:
+        '200':
+          description: Compras visibles
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Purchase' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /purchases/{purchaseId}:
+    parameters:
+      - $ref: '#/components/parameters/PurchaseId'
+    patch:
+      tags: [Purchases]
+      operationId: updatePurchaseStatus
+      summary: Confirma o cancela una compra
+      description: Un administrador puede confirmar una matrícula (`enrolled`) e indicar `userId`; cualquier usuario puede cancelar su propia reserva.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdatePurchaseStatus' }
+      responses:
+        '200':
+          description: Compra actualizada
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purchase' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Purchases]
+      operationId: cancelPurchase
+      summary: Cancela lógicamente una compra propia
+      description: No elimina el elemento; cambia su estado a `cancelled` y devuelve la compra.
+      responses:
+        '200':
+          description: Compra cancelada
+          content: { application/json: { schema: { $ref: '#/components/schemas/Purchase' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    CognitoIdToken: { type: apiKey, in: header, name: Authorization, description: ID token JWT sin prefijo emitido por Cognito }
+  parameters:
+    PurchaseId:
+      name: purchaseId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: UUID v4 generado por el cliente para evitar compras duplicadas.
+      schema: { type: string, format: uuid }
+  schemas:
+    PurchaseStatus:
+      type: string
+      enum: [reserved, enrolled, cancelled]
+    PurchaseInput:
+      type: object
+      additionalProperties: false
+      required: [courseId, scheduleId]
+      properties:
+        courseId: { type: string, minLength: 1, maxLength: 128 }
+        scheduleId: { type: string, minLength: 1, maxLength: 128 }
+    UpdatePurchaseStatus:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [enrolled, cancelled] }
+        userId: { type: string, minLength: 1, maxLength: 128, description: Sólo para administradores que gestionan una compra de otro usuario. }
+    Purchase:
+      type: object
+      required: [tenantId, userId, purchaseId, idempotencyKey, courseId, scheduleId, status, amount, createdAt, updatedAt]
+      properties:
+        tenantId: { type: string }
+        userId: { type: string, description: Claim `sub` de Cognito }
+        purchaseId: { type: string }
+        idempotencyKey: { type: string, format: uuid }
+        courseId: { type: string }
+        scheduleId: { type: string }
+        status: { $ref: '#/components/schemas/PurchaseStatus' }
+        amount: { type: number, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        issues: { type: array, items: { type: object, additionalProperties: true } }
+  responses:
+    BadRequest: { description: JSON o campos inválidos, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Token ausente, inválido o incompleto, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: El rol no puede realizar la transición solicitada, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Curso, horario o compra no encontrados en el tenant, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Horario cerrado o sin cupos, compra cancelada o actualización concurrente, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    InternalError: { description: Error interno, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

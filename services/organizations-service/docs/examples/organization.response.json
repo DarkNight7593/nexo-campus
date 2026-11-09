@@ -1,0 +1,9 @@
+{
+  "organizationId": "udemy",
+  "name": "Academia Udemy",
+  "domain": "udemy.demo",
+  "email": "contacto@udemy.demo",
+  "description": "Institución dedicada a programas profesionales",
+  "createdAt": "2026-01-10T15:30:00.000Z",
+  "updatedAt": "2026-01-10T15:30:00.000Z"
+}

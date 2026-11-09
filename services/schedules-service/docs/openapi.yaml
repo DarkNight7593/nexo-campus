@@ -1,0 +1,160 @@
+openapi: 3.0.3
+info:
+  title: Nexo Campus - Schedules API
+  version: 1.0.0
+  description: Horarios de cursos aislados por tenant y sincronizados con OpenSearch.
+servers:
+  - url: https://{apiId}.execute-api.{region}.amazonaws.com/{stage}
+    variables:
+      apiId: { default: example, description: API ID entregado por CloudFormation }
+      region: { default: us-east-1 }
+      stage: { default: dev }
+security:
+  - CognitoIdToken: []
+tags:
+  - name: Schedules
+paths:
+  /schedules:
+    post:
+      tags: [Schedules]
+      operationId: createSchedule
+      summary: Crea un horario para un curso
+      description: Requiere rol `admin` o `instructor`. El curso debe existir en el mismo tenant y un instructor sólo puede crear horarios para sus propios cursos.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScheduleInput' }
+            examples:
+              schedule:
+                externalValue: ./examples/create-schedule.request.json
+      responses:
+        '201':
+          description: Horario creado
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Schedule' }
+              examples:
+                created:
+                  externalValue: ./examples/schedule.response.json
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    get:
+      tags: [Schedules]
+      operationId: listSchedules
+      summary: Lista horarios de un curso
+      parameters:
+        - $ref: '#/components/parameters/CourseIdQuery'
+      responses:
+        '200':
+          description: Horarios del curso en el tenant autenticado
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: { type: array, items: { $ref: '#/components/schemas/Schedule' } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '500': { $ref: '#/components/responses/InternalError' }
+  /schedules/{scheduleId}:
+    parameters:
+      - $ref: '#/components/parameters/ScheduleId'
+      - $ref: '#/components/parameters/CourseIdQuery'
+    patch:
+      tags: [Schedules]
+      operationId: updateSchedule
+      summary: Actualiza un horario
+      description: Requiere rol `admin` o el instructor propietario del curso; `courseId` no se puede cambiar.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UpdateSchedule' }
+      responses:
+        '200':
+          description: Horario actualizado
+          content: { application/json: { schema: { $ref: '#/components/schemas/Schedule' } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+    delete:
+      tags: [Schedules]
+      operationId: deleteSchedule
+      summary: Elimina un horario
+      description: Requiere rol `admin` o el instructor propietario del curso.
+      responses:
+        '204': { description: Horario eliminado o ya inexistente }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
+components:
+  securitySchemes:
+    CognitoIdToken: { type: apiKey, in: header, name: Authorization, description: ID token JWT sin prefijo emitido por Cognito }
+  parameters:
+    CourseIdQuery:
+      name: courseId
+      in: query
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+      description: Curso que forma parte de la clave de acceso DynamoDB.
+    ScheduleId:
+      name: scheduleId
+      in: path
+      required: true
+      schema: { type: string, minLength: 1, maxLength: 128 }
+  schemas:
+    ScheduleInput:
+      type: object
+      additionalProperties: false
+      required: [courseId, days, startTime, endTime, capacity]
+      properties:
+        courseId: { type: string, minLength: 1, maxLength: 128 }
+        days: { type: array, minItems: 1, maxItems: 7, uniqueItems: true, items: { type: string, enum: [MON, TUE, WED, THU, FRI, SAT, SUN] } }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', example: '18:00' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$', description: Debe ser posterior a startTime, example: '20:00' }
+        capacity: { type: integer, minimum: 1, maximum: 10000, example: 30 }
+        status: { type: string, enum: [open, closed], default: open }
+    UpdateSchedule:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        days: { type: array, minItems: 1, maxItems: 7, uniqueItems: true, items: { type: string, enum: [MON, TUE, WED, THU, FRI, SAT, SUN] } }
+        startTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        endTime: { type: string, pattern: '^([01][0-9]|2[0-3]):[0-5][0-9]$' }
+        capacity: { type: integer, minimum: 1, maximum: 10000, description: No puede ser menor que occupiedCount. }
+        status: { type: string, enum: [open, closed] }
+    Schedule:
+      allOf:
+        - $ref: '#/components/schemas/ScheduleInput'
+        - type: object
+          required: [tenantId, scheduleId, occupiedCount, createdAt, updatedAt]
+          properties:
+            tenantId: { type: string }
+            scheduleId: { type: string }
+            occupiedCount: { type: integer, minimum: 0, readOnly: true }
+            createdAt: { type: string, format: date-time }
+            updatedAt: { type: string, format: date-time }
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        issues: { type: array, items: { type: object, additionalProperties: true } }
+  responses:
+    BadRequest: { description: JSON, horario o courseId inválido, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Token ausente, inválido o incompleto, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Rol sin permisos o instructor que no es propietario del curso, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Curso u horario no encontrado, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: El horario ya existe, cambió concurrentemente o su capacidad es menor que los cupos ocupados, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    InternalError: { description: Error interno, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }

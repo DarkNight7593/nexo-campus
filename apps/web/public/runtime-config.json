@@ -1,0 +1,6 @@
+{
+  "region": "us-east-1",
+  "stage": "unconfigured",
+  "apiUrls": { "users": "", "organizations": "", "courses": "", "schedules": "", "purchases": "" },
+  "auth": { "mode": "cognito", "domain": "", "clientId": "", "redirectUri": "", "logoutUri": "" }
+}
