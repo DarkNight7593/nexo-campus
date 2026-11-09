@@ -8,7 +8,7 @@ concurrency: deploy-production
 jobs:
   deploy:
     environment: production
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -17,7 +17,12 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run validate
-      - uses: aws-actions/configure-aws-credentials@v5
+      - name: Verify AWS deployment configuration
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.EXPECTED_AWS_ACCOUNT_ID }}
+        run: test -n "$AWS_DEPLOY_ROLE_ARN" && test -n "$EXPECTED_AWS_ACCOUNT_ID" || (echo "Configure AWS_DEPLOY_ROLE_ARN and EXPECTED_AWS_ACCOUNT_ID in the production GitHub Environment before deploying." && exit 1)
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}

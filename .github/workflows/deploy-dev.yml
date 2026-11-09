@@ -1,8 +1,6 @@
 name: Deploy dev
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 permissions:
   id-token: write
   contents: read
@@ -10,7 +8,7 @@ concurrency: deploy-dev
 jobs:
   deploy:
     environment: dev
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -19,7 +17,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run validate
-      - uses: aws-actions/configure-aws-credentials@v5
+      - name: Verify AWS deployment configuration
+        env:
+          AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+        run: test -n "$AWS_DEPLOY_ROLE_ARN" || (echo "Configure AWS_DEPLOY_ROLE_ARN in the dev GitHub Environment before deploying." && exit 1)
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
